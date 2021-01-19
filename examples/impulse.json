@@ -1,0 +1,15 @@
+{
+    "jobs": {
+        "simple": {
+            "exec_time": 30,
+            "file_size": 10
+        }
+    },
+    "submissions": [
+        {
+            "wait": 0,
+            "amount": 1000,
+            "job_tag": "simple"
+        }
+    ]
+}
