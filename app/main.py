@@ -2,26 +2,32 @@ import json
 from typing import Dict, List
 from subprocess import call
 import time
+import sys
 
 DEBUG = 1
 
 class Job:
+    job_id = 0
     def __init__(self, tag: str, exec_time: int, file_size: int):
+        self.job_id = Job.job_id
         self.tag = tag
         self.exec_time = exec_time
         self.file_size = file_size
 
-    def generate_exec_file(self):
-        out_name = job_filename(self.tag)
+        Job.job_id += 1
+
+    def generate_exec_file(self, path):
+        out_name = job_filename(self.tag, path)
         f = open(out_name, "w")
-        # TODO: entete ?
+        # TODO: entete ? -> normelement pas la peine comme "oarsub 'sh file'"
         f.write("sleep {}\n".format(self.exec_time))
-        # TODO: dd
+        f.write("dd if=/dev/zero of=//mnt/nfs0/file-nfs-{}-${{OAR_JOB_ID}} bs={}M count=1 oflag=direct\n".format(self.tag, self.file_size))
+        # TODO: the question now is: is it possible that the OAR JOB ID is the one from the top level deploy oar job ?
         f.close()
 
-    def generate_oar_command(self):
+    def generate_oar_command(self, path):
         # TODO: Caution ! walltime can be smaller than exec time !
-        return "oarsub \"sh {}\"".format(job_filename(self.tag))
+        return "oarsub \"sh {}\"".format(job_filename(self.tag, path))
 
     def __str__(self):
         return "Job(exec: {}, file_size: {})".format(self.exec_time, self.file_size)
@@ -52,12 +58,11 @@ class Profile:
             self.jobs[j_tag] = Job(j_tag, jobs[j_tag]["exec_time"], jobs[j_tag]["file_size"])
         self.submissions = [Submission(s["wait"], s["amount"], s["job_tag"]) for s in submissions]
 
-    def generate_all_exec_files(self):
-        #TODO: add a path
+    def generate_all_exec_files(self, path):
         for j in self.jobs.values():
-            j.generate_exec_file()
+            j.generate_exec_file(path)
 
-    def run(self):
+    def run(self, path):
         last_submission_time = int(time.time())
         for submission in self.submissions:
             current_time = int(time.time())
@@ -68,7 +73,7 @@ class Profile:
                     time.sleep(sleep_time)
 
             job = self.jobs[submission.get_job_tag()]
-            oar_command = job.generate_oar_command()
+            oar_command = job.generate_oar_command(path)
             for _ in range(submission.get_amount()):
                 if DEBUG == 0:
                     call([oar_command])
@@ -79,18 +84,24 @@ class Profile:
     def __str__(self) -> str:
         return "Profile(jobs: {}, subs: {})".format(self.jobs, self.submissions)
 
-def job_filename(tag):
-    return "/tmp/job_{}.sh".format(tag)
+def job_filename(tag, path):
+    return "{}/job_{}.sh".format(path, tag)
 
 
 def main():
-    print("OAR-Profile")
-    with open("./example.json") as f:
+    args = sys.argv
+    filename = args[1]
+    if len(args) <= 2:
+        path = "/tmp"
+    else:
+        path = args[2]
+
+    with open(filename) as f:
         json_data = json.load(f)
         profile = Profile(json_data["jobs"], json_data["submissions"])
 
-    profile.generate_all_exec_files()
-    profile.run()
+    profile.generate_all_exec_files(path)
+    profile.run(path)
 
     return 0;
 
