@@ -74,6 +74,7 @@ class Profile:
                     call([oar_command])
                 else:
                     print(oar_command)
+            last_submission_time = current_time
 
     def __str__(self) -> str:
         return "Profile(jobs: {}, subs: {})".format(self.jobs, self.submissions)
