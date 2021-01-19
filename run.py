@@ -1,3 +1,3 @@
-from app import *
+from app import main
 
-oar-profile.main()
+main.main()
