@@ -1,10 +1,11 @@
 import json
+import os
 from typing import Dict, List
 from subprocess import call
 import time
 import sys
 
-DEBUG = 1
+DEBUG = 0
 
 class Job:
     job_id = 0
@@ -21,13 +22,14 @@ class Job:
         f = open(out_name, "w")
         # TODO: entete ? -> normelement pas la peine comme "oarsub 'sh file'"
         f.write("sleep {}\n".format(self.exec_time))
-        f.write("dd if=/dev/zero of=//mnt/nfs0/file-nfs-{}-${{OAR_JOB_ID}} bs={}M count=1 oflag=direct\n".format(self.tag, self.file_size))
+        # f.write("dd if=/dev/zero of=//mnt/nfs0/file-nfs-{}-${{OAR_JOB_ID}} bs={}M count=1 oflag=direct\n".format(self.tag, self.file_size))
+        f.write("dd if=/dev/zero of=/srv/shared/file-nfs-{}-${{OAR_JOB_ID}} bs={}M count=1 oflag=direct\n".format(self.tag, self.file_size))
         # TODO: the question now is: is it possible that the OAR JOB ID is the one from the top level deploy oar job ?
         f.close()
 
     def generate_oar_command(self, path):
         # TODO: Caution ! walltime can be smaller than exec time !
-        return "oarsub \"sh {}\"".format(job_filename(self.tag, path))
+        return "/run/wrappers/bin/oarsub \"sh {}\"".format(job_filename(self.tag, path))
 
     def __str__(self):
         return "Job(exec: {}, file_size: {})".format(self.exec_time, self.file_size)
@@ -76,13 +78,18 @@ class Profile:
             oar_command = job.generate_oar_command(path)
             for _ in range(submission.get_amount()):
                 if DEBUG == 0:
-                    call([oar_command])
+                    # call([oar_command])
+                    os.system(oar_command)
                 else:
                     print(oar_command)
             last_submission_time = current_time
 
     def __str__(self) -> str:
         return "Profile(jobs: {}, subs: {})".format(self.jobs, self.submissions)
+
+    def draw(self, filename: str):
+        #TODO
+        pass
 
 def job_filename(tag, path):
     return "{}/job_{}.sh".format(path, tag)
