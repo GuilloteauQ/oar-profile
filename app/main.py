@@ -27,9 +27,12 @@ class Job:
         # TODO: the question now is: is it possible that the OAR JOB ID is the one from the top level deploy oar job ?
         f.close()
 
-    def generate_oar_command(self, path):
+    def generate_oar_command(self, path, is_on_nix):
         # TODO: Caution ! walltime can be smaller than exec time !
-        return "/run/wrappers/bin/oarsub \"sh {}\"".format(job_filename(self.tag, path))
+        if is_on_nix:
+            return "/run/wrappers/bin/oarsub \"sh {}\"".format(job_filename(self.tag, path))
+        else:
+            return "/usr/bin/oarsub \"sh {}\"".format(job_filename(self.tag, path))
 
     def __str__(self):
         return "Job(exec: {}, file_size: {})".format(self.exec_time, self.file_size)
@@ -64,7 +67,7 @@ class Profile:
         for j in self.jobs.values():
             j.generate_exec_file(path)
 
-    def run(self, path):
+    def run(self, path, is_on_nix):
         last_submission_time = int(time.time())
         for submission in self.submissions:
             current_time = int(time.time())
@@ -75,7 +78,7 @@ class Profile:
                     time.sleep(sleep_time)
 
             job = self.jobs[submission.get_job_tag()]
-            oar_command = job.generate_oar_command(path)
+            oar_command = job.generate_oar_command(path, is_on_nix)
             for _ in range(submission.get_amount()):
                 if DEBUG == 0:
                     # call([oar_command])
@@ -98,19 +101,28 @@ def job_filename(tag, path):
 def main():
     args = sys.argv
     filename = args[1]
-    if len(args) <= 2:
-        path = "/tmp"
-    else:
-        path = args[2]
+    is_on_nix = False
+    iter_args = iter(args)
+    for arg in iter_args:
+        if arg == "--nix":
+            is_on_nix = True
+            break
+        if arg == "--path":
+            path = next(iter_args)
+
+    # if len(args) <= 3:
+    #     path = "/tmp"
+    # else:
+    #     path = args[3]
 
     with open(filename) as f:
         json_data = json.load(f)
         profile = Profile(json_data["jobs"], json_data["submissions"])
 
     profile.generate_all_exec_files(path)
-    profile.run(path)
+    profile.run(path, is_on_nix)
 
-    return 0;
+    return 0
 
 if __name__ == "__main__":
     main()
