@@ -32,7 +32,7 @@ class Job:
         if is_on_nix:
             return "/run/wrappers/bin/oarsub \"sh {}\"".format(job_filename(self.tag, path))
         else:
-            return "/usr/bin/oarsub \"sh {}\"".format(job_filename(self.tag, path))
+            return "/usr/local/bin/oarsub \"sh {}\"".format(job_filename(self.tag, path))
 
     def __str__(self):
         return "Job(exec: {}, file_size: {})".format(self.exec_time, self.file_size)
