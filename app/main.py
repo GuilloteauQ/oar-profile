@@ -17,13 +17,15 @@ class Job:
 
         Job.job_id += 1
 
-    def generate_exec_file(self, path):
+    def generate_exec_file(self, path, is_on_nix):
         out_name = job_filename(self.tag, path)
         f = open(out_name, "w")
         # TODO: entete ? -> normelement pas la peine comme "oarsub 'sh file'"
         f.write("sleep {}\n".format(self.exec_time))
-        # f.write("dd if=/dev/zero of=//mnt/nfs0/file-nfs-{}-${{OAR_JOB_ID}} bs={}M count=1 oflag=direct\n".format(self.tag, self.file_size))
-        f.write("dd if=/dev/zero of=/srv/shared/file-nfs-{}-${{OAR_JOB_ID}} bs={}M count=1 oflag=direct\n".format(self.tag, self.file_size))
+        if is_on_nix:
+            f.write("dd if=/dev/zero of=/srv/shared/file-nfs-{}-${{OAR_JOB_ID}} bs={}M count=1 oflag=direct\n".format(self.tag, self.file_size))
+        else:
+            f.write("dd if=/dev/zero of=//mnt/nfs0/file-nfs-{}-${{OAR_JOB_ID}} bs={}M count=1 oflag=direct\n".format(self.tag, self.file_size))
         # TODO: the question now is: is it possible that the OAR JOB ID is the one from the top level deploy oar job ?
         f.close()
 
@@ -63,9 +65,9 @@ class Profile:
             self.jobs[j_tag] = Job(j_tag, jobs[j_tag]["exec_time"], jobs[j_tag]["file_size"])
         self.submissions = [Submission(s["wait"], s["amount"], s["job_tag"]) for s in submissions]
 
-    def generate_all_exec_files(self, path):
+    def generate_all_exec_files(self, path, is_on_nix):
         for j in self.jobs.values():
-            j.generate_exec_file(path)
+            j.generate_exec_file(path, is_on_nix)
 
     def run(self, path, is_on_nix):
         last_submission_time = int(time.time())
@@ -119,7 +121,7 @@ def main():
         json_data = json.load(f)
         profile = Profile(json_data["jobs"], json_data["submissions"])
 
-    profile.generate_all_exec_files(path)
+    profile.generate_all_exec_files(path, is_on_nix)
     profile.run(path, is_on_nix)
 
     return 0
